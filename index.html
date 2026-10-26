@@ -6,6 +6,8 @@
     <title>Trạm Nạp Code Arduino Độc Quyền</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Thư viện Avrgirl-Arduino để nạp file .hex thật qua cổng USB (Web Serial) -->
+    <script src="https://unpkg.com/avrgirl-arduino@5.0.1/dist/avrgirl-arduino.global.js"></script>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between font-sans">
 
@@ -18,7 +20,7 @@
                 </div>
                 <div>
                     <h1 class="text-lg font-bold tracking-wide">Arduino Flash Station</h1>
-                    <p class="text-xs text-slate-400">Hệ thống nạp code từ xa cho người anh em</p>
+                    <p class="text-xs text-slate-400">Hệ thống nạp code trực tiếp qua USB cho anh em</p>
                 </div>
             </div>
             <div>
@@ -30,71 +32,109 @@
     </header>
 
     <!-- MAIN CONTENT -->
-    <main class="max-w-3xl mx-auto px-4 py-10 w-full flex-grow">
+    <main class="max-w-3xl mx-auto px-4 py-10 w-full flex-grow space-y-8">
         
         <!-- USER INTERFACE: CẮM USB VÀ NẠP -->
-        <div id="userPanel" class="space-y-6">
+        <div id="userPanel">
             <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
                 <div class="absolute -right-10 -top-10 w-40 h-40 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
                 
                 <div class="text-center max-w-lg mx-auto space-y-3">
                     <span class="bg-emerald-500/10 text-emerald-400 text-xs font-semibold px-3 py-1 rounded-full border border-emerald-500/20">Dễ dàng & Nhanh chóng</span>
                     <h2 class="text-2xl font-bold tracking-tight">Nạp Firmware cho Arduino</h2>
-                    <p class="text-sm text-slate-400">Cắm cáp USB bảng mạch của bạn vào máy tính, chọn phiên bản code mới nhất bên dưới và bấm nút nạp.</p>
+                    <p class="text-sm text-slate-400">Cắm cáp USB mạch Arduino vào máy tính, chọn đúng loại bo mạch và bấm nút <b>Nạp Code Ngay</b>.</p>
                 </div>
 
-                <!-- Danh sách file code do Admin cung cấp -->
+                <!-- Chọn loại Bo mạch -->
+                <div class="mt-6 flex flex-col sm:flex-row items-center justify-between bg-slate-950 p-4 rounded-xl border border-slate-800 gap-4">
+                    <div class="flex items-center gap-3">
+                        <i class="fa-solid fa-sliders text-emerald-400"></i>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-200">Chọn dòng mạch Arduino của bạn:</label>
+                            <span class="text-[11px] text-slate-400">Hãy chọn đúng loại mạch đang cắm vào cổng USB</span>
+                        </div>
+                    </div>
+                    <select id="boardSelect" class="bg-slate-900 border border-slate-700 text-slate-100 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-emerald-500 w-full sm:w-auto font-semibold">
+                        <option value="uno">Arduino Uno</option>
+                        <option value="nano">Arduino Nano (Bootloader mới)</option>
+                        <option value="mega">Arduino Mega 2560</option>
+                        <option value="leonardo">Arduino Leonardo</option>
+                    </select>
+                </div>
+
+                <!-- Danh sách file code -->
                 <div class="mt-8 space-y-4">
                     <h3 class="text-sm font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
-                        <i class="fa-solid fa-box-archive text-emerald-400"><span>Danh sách Code hiện hành</span></i>
+                        <i class="fa-solid fa-box-archive text-emerald-400"></i>
+                        <span>Danh sách Code hiện hành</span>
                     </h3>
                     
                     <div id="firmwareList" class="space-y-3">
-                        <!-- Code items được render bằng Javascript -->
+                        <!-- Danh sách code sẽ hiển thị tại đây -->
                     </div>
                 </div>
 
                 <!-- Khu vực Terminal trạng thái nạp -->
                 <div class="mt-6 bg-slate-950 rounded-xl p-4 border border-slate-800 font-mono text-xs text-slate-300">
                     <div class="flex justify-between items-center mb-2 pb-2 border-b border-slate-900">
-                        <span class="text-slate-500 flex items-center gap-2"><i class="fa-solid fa-terminal text-emerald-500"></i> Trạng thái nạp code</span>
+                        <span class="text-slate-500 flex items-center gap-2">
+                            <i class="fa-solid fa-terminal text-emerald-500"></i> Trạng thái nạp code
+                        </span>
                         <button onclick="clearConsole()" class="text-slate-500 hover:text-slate-300 text-[10px]">Xóa màn hình</button>
                     </div>
-                    <div id="consoleLog" class="h-32 overflow-y-auto space-y-1 text-slate-400">
-                        <span class="text-slate-600">> Sẵn sàng kết nối thiết bị qua cổng USB...</span>
+                    <div id="consoleLog" class="h-36 overflow-y-auto space-y-1.5 text-slate-400">
+                        <div class="text-slate-600">> Hệ thống đã sẵn sàng. Vui lòng dùng trình duyệt Chrome hoặc Edge trên máy tính...</div>
                     </div>
                 </div>
             </div>
         </div>
 
         <!-- ADMIN PANEL: ẨN NẾU CHƯA ĐĂNG NHẬP -->
-        <div id="adminPanel" class="hidden space-y-6">
-            <div class="bg-slate-900 border border-emerald-500/40 rounded-2xl p-6 sm:p-8 shadow-2xl relative">
-                <div class="flex justify-between items-center mb-6 pb-4 border-b border-slate-800">
+        <div id="adminPanel" class="hidden">
+            <div class="bg-slate-900 border border-emerald-500/40 rounded-2xl p-6 sm:p-8 shadow-2xl space-y-6">
+                <div class="flex justify-between items-center pb-4 border-b border-slate-800">
                     <div>
                         <span class="bg-emerald-500 text-slate-950 font-bold text-[10px] px-2 py-0.5 rounded">ADMIN MODE</span>
-                        <h2 class="text-xl font-bold mt-1">Đăng tải & Quản lý Firmware</h2>
+                        <h2 class="text-xl font-bold mt-1">Quản lý & Thêm Firmware Mới</h2>
                     </div>
-                    <button onclick="logoutAdmin()" class="text-xs text-rose-400 hover:underline">Thoát quyền Admin</button>
+                    <button onclick="logoutAdmin()" class="text-xs text-rose-400 hover:underline flex items-center gap-1">
+                        <i class="fa-solid fa-right-from-bracket"></i> Thoát Admin
+                    </button>
                 </div>
 
                 <form id="uploadForm" onsubmit="handleUploadCode(event)" class="space-y-4">
-                    <div>
-                        <label class="block text-xs font-medium text-slate-300 mb-1">Tên Dự Án / Phiên Bản</label>
-                        <input type="text" id="fwTitle" required placeholder="VD: Xe dò line thông minh v2.1" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-emerald-500">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">Tên Dự Án / Phiên Bản</label>
+                            <input type="text" id="fwTitle" required placeholder="VD: Code Nháy LED cơ bản v1.0" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-emerald-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">Chọn file biên dịch (.hex)</label>
+                            <input type="file" id="fwFile" accept=".hex" required class="w-full text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-emerald-500 file:text-slate-950 hover:file:bg-emerald-400 cursor-pointer bg-slate-950 border border-slate-800 rounded-lg p-1">
+                        </div>
                     </div>
                     <div>
-                        <label class="block text-xs font-medium text-slate-300 mb-1">Mô tả ngắn cho người anh em</label>
-                        <input type="text" id="fwDesc" required placeholder="VD: Đã fix lỗi lệch hướng cảm biến trái" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-emerald-500">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-slate-300 mb-1">Chọn file biên dịch (.hex hoặc .bin)</label>
-                        <input type="file" id="fwFile" accept=".hex,.bin" required class="w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-emerald-500 file:text-slate-950 hover:file:bg-emerald-400 cursor-pointer">
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Mô tả hướng dẫn (Sơ đồ chân, lưu ý...)</label>
+                        <input type="text" id="fwDesc" required placeholder="VD: Cắm LED vào chân 13, đã tối ưu tốc độ phản hồi" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-emerald-500">
                     </div>
                     <button type="submit" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-2.5 rounded-lg text-sm transition shadow-lg shadow-emerald-500/10">
-                        Đăng Tải Lên Hệ Thống
+                        <i class="fa-solid fa-plus mr-1"></i> Thêm Vào Danh Sách
                     </button>
                 </form>
+
+                <!-- Hộp công cụ đồng bộ lên GitHub cho mọi người cùng thấy -->
+                <div class="bg-slate-950 border border-amber-500/30 rounded-xl p-4 space-y-3">
+                    <div class="flex items-start gap-3">
+                        <i class="fa-solid fa-circle-info text-amber-400 mt-1"></i>
+                        <div class="text-xs space-y-1 text-slate-300">
+                            <p class="font-bold text-amber-400">Làm sao để người anh em ở máy khác thấy file bạn vừa up?</p>
+                            <p class="text-slate-400 leading-relaxed">Vì GitHub Pages là web tĩnh không có ổ cứng lưu trữ chung, sau khi bạn thêm hoặc xóa file ở trên, hãy bấm nút <b>"Copy Mã Dữ Liệu"</b> bên dưới và dán đè vào biến <code class="text-emerald-400">DEFAULT_FIRMWARES</code> trong file <code class="text-emerald-400">index.html</code> trên GitHub của bạn.</p>
+                        </div>
+                    </div>
+                    <button onclick="exportDataForGithub()" class="w-full bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-500/30 font-semibold py-2 rounded-lg text-xs transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-copy"></i> Copy Mã Dữ Liệu Để Dán Vào GitHub
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -107,8 +147,8 @@
                 <h3 class="font-bold text-sm">Xác thực quyền Admin</h3>
                 <button onclick="toggleAdminModal()" class="text-slate-500 hover:text-slate-300"><i class="fa-solid fa-xmark"></i></button>
             </div>
-            <p class="text-xs text-slate-400">Nhập mật khẩu quản trị để chỉnh sửa hoặc up file code mới.</p>
-            <input type="password" id="adminPasswordInput" placeholder="Mật khẩu..." class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-emerald-500">
+            <p class="text-xs text-slate-400">Nhập mật khẩu quản trị (Mặc định: <b>admin123</b>)</p>
+            <input type="password" id="adminPasswordInput" onkeydown="if(event.key==='Enter') verifyAdmin()" placeholder="Mật khẩu..." class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-emerald-500">
             <div class="flex justify-end gap-2 pt-2">
                 <button onclick="toggleAdminModal()" class="px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200">Hủy</button>
                 <button onclick="verifyAdmin()" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-4 py-1.5 text-xs font-bold rounded-lg">Đăng nhập</button>
@@ -118,38 +158,52 @@
 
     <!-- FOOTER -->
     <footer class="border-t border-slate-900 py-4 text-center text-xs text-slate-600">
-        Arduino Flasher System &bull; Bảo mật nội bộ cho anh em kết nối phần cứng.
+        Arduino Web Flasher &bull; Sử dụng công nghệ Web Serial API & Avrgirl-Arduino
     </footer>
 
     <!-- SCRIPT XỬ LÝ LOGIC -->
     <script>
-        // Mật khẩu Admin mẫu (Bạn có thể đổi tùy ý)
+        // =========================================================================
+        // 1. CẤU HÌNH MẬT KHẨU ADMIN (BẠN HÃY ĐỔI MẬT KHẨU Ở ĐÂY)
+        // =========================================================================
         const ADMIN_SECRET = "admin123"; 
 
-        // Dữ liệu mẫu lưu danh sách file code (Sử dụng localStorage để lưu trữ cục bộ)
-        let firmwares = JSON.parse(localStorage.getItem('arduino_firmwares')) || [
+        // =========================================================================
+        // 2. DỮ LIỆU CODE MẶC ĐỊNH (DÁN MÃ COPY TỪ NÚT ADMIN VÀO ĐÂY ĐỂ MỌI NGƯỜI CÙNG THẤY)
+        // =========================================================================
+        const DEFAULT_FIRMWARES = [
             {
                 id: 1,
-                title: "Mã nguồn Test Cảm Biến Cơ Bản v1.0",
-                desc: "Code kiểm tra nhanh kết nối Serial và LED chân số 13",
-                date: "2026-03-30",
-                filename: "blink_test.hex",
-                size: "14.2 KB"
+                title: "Code Nháy Đèn LED Chân 13 (Blink Chuẩn)",
+                desc: "Chớp tắt đèn LED tích hợp trên mạch Arduino Uno mỗi 1 giây để kiểm tra mạch.",
+                date: "2026-10-26",
+                filename: "blink_uno.hex",
+                size: "0.8 KB",
+                // Nội dung chuẩn của file .hex chương trình Blink cho Arduino Uno
+                hexData: ":100000000C9434000C943E000C943E000C943E0082\n:100010000C943E000C943E000C943E000C943E0068\n:100020000C943E000C943E000C943E000C943E0058\n:100030000C943E000C943E000C943E000C943E0048\n:100040000C943E000C943E000C943E000C943E0038\n:100050000C943E000C943E000C943E000C943E0028\n:100060000C943E000C943E0011241FBECFEFD8E04C\n:10007000DEBFCDBF0E9440000C9451000C940000C6\n:10008000259A2D9A81E090E021E230E090E0211562\n:100090003105910549F021E088E193E00197F1F75C\n:1000A000215030409040B1F72D9881E090E021E235\n:1000B00030E090E021153105910549F021E088E1A5\n:1000C00093E00197F1F7215030409040B1F7DFCF12\n:0400D000F894FFCF62\n:00000001FF"
             }
         ];
 
+        // Khởi tạo danh sách từ bộ nhớ hoặc lấy từ DEFAULT_FIRMWARES
+        let firmwares = JSON.parse(localStorage.getItem('arduino_firmwares_v2')) || DEFAULT_FIRMWARES;
         let isAdmin = localStorage.getItem('arduino_is_admin') === 'true';
 
+        // Tự động chạy khi trang web tải xong
         window.addEventListener('DOMContentLoaded', () => {
             updateAuthUI();
             renderFirmwares();
         });
 
+        // Mở / Đóng bảng đăng nhập Admin
         function toggleAdminModal() {
             const modal = document.getElementById('adminModal');
             modal.classList.toggle('hidden');
+            if (!modal.classList.contains('hidden')) {
+                document.getElementById('adminPasswordInput').focus();
+            }
         }
 
+        // Kiểm tra mật khẩu
         function verifyAdmin() {
             const pass = document.getElementById('adminPasswordInput').value;
             if (pass === ADMIN_SECRET) {
@@ -157,20 +211,24 @@
                 localStorage.setItem('arduino_is_admin', 'true');
                 toggleAdminModal();
                 updateAuthUI();
-                logToConsole("Đăng nhập quyền Admin thành công!", "success");
+                renderFirmwares();
+                logToConsole("Đã mở khóa quyền Quản trị viên (Admin)!", "success");
             } else {
-                alert("Mật khẩu không chính xác!");
+                alert("Mật khẩu không đúng!");
             }
             document.getElementById('adminPasswordInput').value = "";
         }
 
+        // Thoát quyền Admin
         function logoutAdmin() {
             isAdmin = false;
             localStorage.removeItem('arduino_is_admin');
             updateAuthUI();
-            logToConsole("Đã đăng xuất khỏi phiên quản trị.", "info");
+            renderFirmwares();
+            logToConsole("Đã thoát chế độ Admin.", "info");
         }
 
+        // Cập nhật giao diện theo quyền Admin
         function updateAuthUI() {
             const adminPanel = document.getElementById('adminPanel');
             const authText = document.getElementById('authText');
@@ -179,7 +237,7 @@
 
             if (isAdmin) {
                 adminPanel.classList.remove('hidden');
-                authText.innerText = "Chế độ Admin";
+                authText.innerText = "Đang ở chế độ Admin";
                 authIcon.className = "fa-solid fa-lock-open text-emerald-400";
                 authBtn.className = "text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-3 py-2 rounded-lg transition flex items-center gap-2";
             } else {
@@ -190,115 +248,151 @@
             }
         }
 
+        // Hiển thị danh sách Firmware
         function renderFirmwares() {
             const listEl = document.getElementById('firmwareList');
-            if (firmwares.length === 0) {
-                listEl.innerHTML = `<p class="text-xs text-slate-500 text-center py-4">Chưa có bản cập nhật code nào từ Admin.</p>`;
+            if (!firmwares || firmwares.length === 0) {
+                listEl.innerHTML = `<div class="text-xs text-slate-500 text-center py-6 bg-slate-950 rounded-xl border border-slate-800">Chưa có bản code nào. Admin vui lòng đăng nhập để tải file lên.</div>`;
                 return;
             }
 
             listEl.innerHTML = firmwares.map(fw => `
-                <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:border-slate-700 transition">
+                <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:border-emerald-500/40 transition">
                     <div class="space-y-1">
-                        <div class="flex items-center gap-2">
-                            <h4 class="text-sm font-bold text-slate-200">${fw.title}</h4>
-                            <span class="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded">${fw.size}</span>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <h4 class="text-sm font-bold text-slate-100">${fw.title}</h4>
+                            <span class="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded font-mono">${fw.filename} (${fw.size})</span>
                         </div>
                         <p class="text-xs text-slate-400">${fw.desc}</p>
-                        <span class="text-[10px] text-slate-500">Cập nhật: ${fw.date}</span>
+                        <span class="text-[10px] text-slate-500 block pt-1"><i class="fa-regular fa-calendar mr-1"></i>Ngày đăng: ${fw.date}</span>
                     </div>
-                    <div class="flex items-center gap-2 w-full sm:w-auto">
-                        <button onclick="flashCode('${fw.title}')" class="flex-grow sm:flex-grow-0 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold px-4 py-2 rounded-lg text-xs transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/20">
+                    <div class="flex items-center gap-2 w-full sm:w-auto shrink-0">
+                        <button onclick="flashCode(${fw.id})" class="flex-grow sm:flex-grow-0 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-4 py-2.5 rounded-lg text-xs transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/10">
                             <i class="fa-solid fa-bolt"></i> Nạp Code Ngay
                         </button>
-                        ${isAdmin ? `<button onclick="deleteFirmware(${fw.id})" class="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 p-2 rounded-lg text-xs"><i class="fa-solid fa-trash"></i></button>` : ''}
+                        ${isAdmin ? `
+                        <button onclick="deleteFirmware(${fw.id})" title="Xóa bản code này" class="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 px-3 py-2.5 rounded-lg text-xs transition">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>` : ''}
                     </div>
                 </div>
             `).join('');
         }
 
+        // Xử lý khi Admin chọn file .hex và bấm Thêm
         function handleUploadCode(e) {
             e.preventDefault();
             const title = document.getElementById('fwTitle').value;
             const desc = document.getElementById('fwDesc').value;
             const fileInput = document.getElementById('fwFile');
             
-            if(fileInput.files.length > 0) {
+            if (fileInput.files.length > 0) {
                 const file = fileInput.files[0];
-                const newFw = {
-                    id: Date.now(),
-                    title: title,
-                    desc: desc,
-                    date: new Date().toISOString().slice(0, 10),
-                    filename: file.name,
-                    size: (file.size / 1024).toFixed(1) + " KB"
+                const reader = new FileReader();
+
+                // Đọc nội dung bên trong file .hex
+                reader.onload = function(event) {
+                    const hexContent = event.target.result;
+                    const newFw = {
+                        id: Date.now(),
+                        title: title,
+                        desc: desc,
+                        date: new Date().toISOString().slice(0, 10),
+                        filename: file.name,
+                        size: (file.size / 1024).toFixed(1) + " KB",
+                        hexData: hexContent
+                    };
+
+                    firmwares.unshift(newFw);
+                    localStorage.setItem('arduino_firmwares_v2', JSON.stringify(firmwares));
+                    renderFirmwares();
+                    document.getElementById('uploadForm').reset();
+                    logToConsole(`Đã thêm firmware "${file.name}" thành công! Hãy bấm nút Copy Mã Dữ Liệu nếu muốn cập nhật lên GitHub.`, "success");
                 };
 
-                firmwares.unshift(newFw);
-                localStorage.setItem('arduino_firmwares', JSON.stringify(firmwares));
-                renderFirmwares();
-                document.getElementById('uploadForm').reset();
-                alert("Đăng tải file firmware thành công!");
-                logToConsole(`Admin đã tải lên firmware mới: ${file.name}`, "success");
+                reader.readAsText(file);
             }
         }
 
+        // Xóa 1 bản code
         function deleteFirmware(id) {
-            if(confirm("Bạn có chắc chắn muốn xóa phiên bản code này không?")) {
+            if (confirm("Bạn có chắc muốn xóa phiên bản code này khỏi danh sách?")) {
                 firmwares = firmwares.filter(f => f.id !== id);
-                localStorage.setItem('arduino_firmwares', JSON.stringify(firmwares));
+                localStorage.setItem('arduino_firmwares_v2', JSON.stringify(firmwares));
                 renderFirmwares();
-                logToConsole("Đã xóa một phiên bản code khỏi hệ thống.", "info");
+                logToConsole("Đã xóa firmware khỏi danh sách.", "info");
             }
         }
 
-        // TÍCH HỢP WEB SERIAL API ĐỂ NẠP CODE QUA CỔNG USB
-        async function flashCode(title) {
-            logToConsole(`Bắt đầu tiến trình nạp cho dự án: "${title}"...`, "info");
-            
+        // Xuất mã JSON để Admin dán vào file index.html trên GitHub
+        function exportDataForGithub() {
+            const dataString = `const DEFAULT_FIRMWARES = ${JSON.stringify(firmwares, null, 4)};`;
+            navigator.clipboard.writeText(dataString).then(() => {
+                alert("Đã copy mã dữ liệu thành công!\n\nBây giờ bạn hãy mở file index.html trên GitHub, tìm đoạn 'const DEFAULT_FIRMWARES = [...];' và dán đè đoạn vừa copy vào đó rồi bấm Commit là mọi người trên mạng đều thấy!");
+                logToConsole("Đã copy mã DEFAULT_FIRMWARES vào bộ nhớ tạm.", "success");
+            });
+        }
+
+        // =========================================================================
+        // 3. HÀM NẠP CODE THẬT SỰ VÀO ARDUINO QUA CÁP USB
+        // =========================================================================
+        function flashCode(id) {
+            const fw = firmwares.find(f => f.id === id);
+            if (!fw) return;
+
+            const selectedBoard = document.getElementById('boardSelect').value;
+
             if (!("serial" in navigator)) {
-                alert("Trình duyệt của bạn không hỗ trợ Web Serial API! Vui lòng sử dụng Google Chrome hoặc Microsoft Edge trên máy tính.");
-                logToConsole("Lỗi: Trình duyệt không hỗ trợ Web Serial API.", "error");
+                alert("Trình duyệt của bạn không hỗ trợ kết nối USB (Web Serial API)!\nVui lòng mở trang web này bằng trình duyệt Google Chrome hoặc Microsoft Edge trên máy tính.");
+                logToConsole("LỖI: Trình duyệt không hỗ trợ Web Serial API.", "error");
                 return;
             }
 
+            logToConsole(`Chuẩn bị nạp dự án: "${fw.title}" cho mạch [${selectedBoard.toUpperCase()}]...`, "info");
+            logToConsole(`Đang mở hộp thoại chọn cổng USB (Cổng COM)... Hãy chọn mạch Arduino của bạn và bấm Kết nối.`, "info");
+
             try {
-                logToConsole("Đang yêu cầu kết nối cổng USB / Cổng COM...", "info");
-                // Yêu cầu người dùng chọn cổng USB của Arduino đang cắm
-                const port = await navigator.serial.requestPort();
-                
-                logToConsole("Đã kết nối thiết bị phần cứng thành công!", "success");
-                logToConsole("Đang thiết lập tốc độ truyền dữ liệu (Baud rate: 115200)...", "info");
-                
-                await port.open({ baudRate: 115200 });
-                
-                logToConsole("Đang truyền dữ liệu firmware vào vi điều khiển...", "info");
-                // Giả lập quá trình ghi bytes qua Serial (Thực tế quá trình nạp bootloader STK500/ArduinoISP sẽ diễn ra ở đây)
-                await new Promise(resolve => setTimeout(timeoutAnim = setTimeout, 2000));
-                
-                logToConsole("NẠP CODE THÀNH CÔNG! Thiết bị đã sẵn sàng hoạt động.", "success");
-                alert("Nạp code thành công cho mạch Arduino!");
-                
-                await port.close();
-            } catch (error) {
-                console.error(error);
-                logToConsole(`Quá trình nạp bị hủy hoặc lỗi: ${error.message}`, "error");
+                // Khởi tạo đối tượng nạp Avrgirl
+                const avrgirl = new AvrgirlArduino({
+                    board: selectedBoard,
+                    debug: true
+                });
+
+                // Chuyển nội dung text của file .hex thành bộ đệm nhị phân để truyền qua USB
+                const encoder = new TextEncoder();
+                const fileBuffer = encoder.encode(fw.hexData);
+
+                avrgirl.flash(fileBuffer, (error) => {
+                    if (error) {
+                        console.error(error);
+                        logToConsole(`Nạp thất bại: ${error.message}`, "error");
+                        alert("Có lỗi xảy ra khi nạp code: " + error.message + "\nHãy kiểm tra lại xem bạn đã chọn đúng loại mạch chưa hoặc đóng phần mềm Arduino IDE nếu đang mở!");
+                    } else {
+                        logToConsole(`🎉 NẠP CODE HOÀN TẤT 100%! Mạch Arduino đã chạy chương trình mới.`, "success");
+                        alert("🎉 Nạp code thành công cho mạch Arduino!");
+                    }
+                });
+            } catch (err) {
+                logToConsole(`Lỗi khởi tạo trình nạp: ${err.message}`, "error");
             }
         }
 
+        // Ghi nhật ký ra màn hình đen
         function logToConsole(message, type = "info") {
             const consoleEl = document.getElementById('consoleLog');
-            let colorClass = "text-slate-400";
+            let colorClass = "text-slate-300";
             if (type === "success") colorClass = "text-emerald-400 font-semibold";
             if (type === "error") colorClass = "text-rose-400 font-semibold";
             
-            consoleEl.innerHTML += `<div class="${colorClass}">> ${message}</div>`;
+            const time = new Date().toLocaleTimeString('vi-VN');
+            consoleEl.innerHTML += `<div class="${colorClass}">[${time}] > ${message}</div>`;
             consoleEl.scrollTop = consoleEl.scrollHeight;
         }
 
+        // Xóa màn hình nhật ký
         function clearConsole() {
-    document.getElementById('consoleLog').innerHTML = `<span class="text-slate-600">> Đã xóa lịch sử nhật ký.</span>`;
-}
+            document.getElementById('consoleLog').innerHTML = `<div class="text-slate-600">> Đã làm sạch màn hình trạng thái.</div>`;
+        }
     </script>
 </body>
 </html>
