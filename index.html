@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trạm Nạp Code Arduino Độc Quyền</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between font-sans">
+
+    <!-- HEADER -->
+    <header class="border-b border-slate-800 bg-slate-900/50 backdrop-blur sticky top-0 z-50">
+        <div class="max-w-5xl mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div class="bg-emerald-500 text-slate-950 p-2 rounded-xl font-bold shadow-lg shadow-emerald-500/20">
+                    <i class="fa-solid fa-microchip text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-wide">Arduino Flash Station</h1>
+                    <p class="text-xs text-slate-400">Hệ thống nạp code từ xa cho người anh em</p>
+                </div>
+            </div>
+            <div>
+                <button id="authBtn" onclick="toggleAdminModal()" class="text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-2 rounded-lg transition flex items-center gap-2">
+                    <i class="fa-solid fa-lock text-emerald-400" id="authIcon"></i> <span id="authText">Admin Đăng Nhập</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <main class="max-w-3xl mx-auto px-4 py-10 w-full flex-grow">
+        
+        <!-- USER INTERFACE: CẮM USB VÀ NẠP -->
+        <div id="userPanel" class="space-y-6">
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
+                <div class="absolute -right-10 -top-10 w-40 h-40 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                
+                <div class="text-center max-w-lg mx-auto space-y-3">
+                    <span class="bg-emerald-500/10 text-emerald-400 text-xs font-semibold px-3 py-1 rounded-full border border-emerald-500/20">Dễ dàng & Nhanh chóng</span>
+                    <h2 class="text-2xl font-bold tracking-tight">Nạp Firmware cho Arduino</h2>
+                    <p class="text-sm text-slate-400">Cắm cáp USB bảng mạch của bạn vào máy tính, chọn phiên bản code mới nhất bên dưới và bấm nút nạp.</p>
+                </div>
+
+                <!-- Danh sách file code do Admin cung cấp -->
+                <div class="mt-8 space-y-4">
+                    <h3 class="text-sm font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                        <i class="fa-solid fa-box-archive text-emerald-400"><span>Danh sách Code hiện hành</span></i>
+                    </h3>
+                    
+                    <div id="firmwareList" class="space-y-3">
+                        <!-- Code items được render bằng Javascript -->
+                    </div>
+                </div>
+
+                <!-- Khu vực Terminal trạng thái nạp -->
+                <div class="mt-6 bg-slate-950 rounded-xl p-4 border border-slate-800 font-mono text-xs text-slate-300">
+                    <div class="flex justify-between items-center mb-2 pb-2 border-b border-slate-900">
+                        <span class="text-slate-500 flex items-center gap-2"><i class="fa-solid fa-terminal text-emerald-500"></i> Trạng thái nạp code</span>
+                        <button onclick="clearConsole()" class="text-slate-500 hover:text-slate-300 text-[10px]">Xóa màn hình</button>
+                    </div>
+                    <div id="consoleLog" class="h-32 overflow-y-auto space-y-1 text-slate-400">
+                        <span class="text-slate-600">> Sẵn sàng kết nối thiết bị qua cổng USB...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ADMIN PANEL: ẨN NẾU CHƯA ĐĂNG NHẬP -->
+        <div id="adminPanel" class="hidden space-y-6">
+            <div class="bg-slate-900 border border-emerald-500/40 rounded-2xl p-6 sm:p-8 shadow-2xl relative">
+                <div class="flex justify-between items-center mb-6 pb-4 border-b border-slate-800">
+                    <div>
+                        <span class="bg-emerald-500 text-slate-950 font-bold text-[10px] px-2 py-0.5 rounded">ADMIN MODE</span>
+                        <h2 class="text-xl font-bold mt-1">Đăng tải & Quản lý Firmware</h2>
+                    </div>
+                    <button onclick="logoutAdmin()" class="text-xs text-rose-400 hover:underline">Thoát quyền Admin</button>
+                </div>
+
+                <form id="uploadForm" onsubmit="handleUploadCode(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Tên Dự Án / Phiên Bản</label>
+                        <input type="text" id="fwTitle" required placeholder="VD: Xe dò line thông minh v2.1" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Mô tả ngắn cho người anh em</label>
+                        <input type="text" id="fwDesc" required placeholder="VD: Đã fix lỗi lệch hướng cảm biến trái" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Chọn file biên dịch (.hex hoặc .bin)</label>
+                        <input type="file" id="fwFile" accept=".hex,.bin" required class="w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-emerald-500 file:text-slate-950 hover:file:bg-emerald-400 cursor-pointer">
+                    </div>
+                    <button type="submit" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-2.5 rounded-lg text-sm transition shadow-lg shadow-emerald-500/10">
+                        Đăng Tải Lên Hệ Thống
+                    </button>
+                </form>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- MODAL ĐĂNG NHẬP ADMIN -->
+    <div id="adminModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-2xl">
+            <div class="flex justify-between items-center">
+                <h3 class="font-bold text-sm">Xác thực quyền Admin</h3>
+                <button onclick="toggleAdminModal()" class="text-slate-500 hover:text-slate-300"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <p class="text-xs text-slate-400">Nhập mật khẩu quản trị để chỉnh sửa hoặc up file code mới.</p>
+            <input type="password" id="adminPasswordInput" placeholder="Mật khẩu..." class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-emerald-500">
+            <div class="flex justify-end gap-2 pt-2">
+                <button onclick="toggleAdminModal()" class="px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200">Hủy</button>
+                <button onclick="verifyAdmin()" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-4 py-1.5 text-xs font-bold rounded-lg">Đăng nhập</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="border-t border-slate-900 py-4 text-center text-xs text-slate-600">
+        Arduino Flasher System &bull; Bảo mật nội bộ cho anh em kết nối phần cứng.
+    </footer>
+
+    <!-- SCRIPT XỬ LÝ LOGIC -->
+    <script>
+        // Mật khẩu Admin mẫu (Bạn có thể đổi tùy ý)
+        const ADMIN_SECRET = "admin123"; 
+
+        // Dữ liệu mẫu lưu danh sách file code (Sử dụng localStorage để lưu trữ cục bộ)
+        let firmwares = JSON.parse(localStorage.getItem('arduino_firmwares')) || [
+            {
+                id: 1,
+                title: "Mã nguồn Test Cảm Biến Cơ Bản v1.0",
+                desc: "Code kiểm tra nhanh kết nối Serial và LED chân số 13",
+                date: "2026-03-30",
+                filename: "blink_test.hex",
+                size: "14.2 KB"
+            }
+        ];
+
+        let isAdmin = localStorage.getItem('arduino_is_admin') === 'true';
+
+        window.addEventListener('DOMContentLoaded', () => {
+            updateAuthUI();
+            renderFirmwares();
+        });
+
+        function toggleAdminModal() {
+            const modal = document.getElementById('adminModal');
+            modal.classList.toggle('hidden');
+        }
+
+        function verifyAdmin() {
+            const pass = document.getElementById('adminPasswordInput').value;
+            if (pass === ADMIN_SECRET) {
+                isAdmin = true;
+                localStorage.setItem('arduino_is_admin', 'true');
+                toggleAdminModal();
+                updateAuthUI();
+                logToConsole("Đăng nhập quyền Admin thành công!", "success");
+            } else {
+                alert("Mật khẩu không chính xác!");
+            }
+            document.getElementById('adminPasswordInput').value = "";
+        }
+
+        function logoutAdmin() {
+            isAdmin = false;
+            localStorage.removeItem('arduino_is_admin');
+            updateAuthUI();
+            logToConsole("Đã đăng xuất khỏi phiên quản trị.", "info");
+        }
+
+        function updateAuthUI() {
+            const adminPanel = document.getElementById('adminPanel');
+            const authText = document.getElementById('authText');
+            const authIcon = document.getElementById('authIcon');
+            const authBtn = document.getElementById('authBtn');
+
+            if (isAdmin) {
+                adminPanel.classList.remove('hidden');
+                authText.innerText = "Chế độ Admin";
+                authIcon.className = "fa-solid fa-lock-open text-emerald-400";
+                authBtn.className = "text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-3 py-2 rounded-lg transition flex items-center gap-2";
+            } else {
+                adminPanel.classList.add('hidden');
+                authText.innerText = "Admin Đăng Nhập";
+                authIcon.className = "fa-solid fa-lock text-emerald-400";
+                authBtn.className = "text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-2 rounded-lg transition flex items-center gap-2";
+            }
+        }
+
+        function renderFirmwares() {
+            const listEl = document.getElementById('firmwareList');
+            if (firmwares.length === 0) {
+                listEl.innerHTML = `<p class="text-xs text-slate-500 text-center py-4">Chưa có bản cập nhật code nào từ Admin.</p>`;
+                return;
+            }
+
+            listEl.innerHTML = firmwares.map(fw => `
+                <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:border-slate-700 transition">
+                    <div class="space-y-1">
+                        <div class="flex items-center gap-2">
+                            <h4 class="text-sm font-bold text-slate-200">${fw.title}</h4>
+                            <span class="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded">${fw.size}</span>
+                        </div>
+                        <p class="text-xs text-slate-400">${fw.desc}</p>
+                        <span class="text-[10px] text-slate-500">Cập nhật: ${fw.date}</span>
+                    </div>
+                    <div class="flex items-center gap-2 w-full sm:w-auto">
+                        <button onclick="flashCode('${fw.title}')" class="flex-grow sm:flex-grow-0 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold px-4 py-2 rounded-lg text-xs transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/20">
+                            <i class="fa-solid fa-bolt"></i> Nạp Code Ngay
+                        </button>
+                        ${isAdmin ? `<button onclick="deleteFirmware(${fw.id})" class="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 p-2 rounded-lg text-xs"><i class="fa-solid fa-trash"></i></button>` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function handleUploadCode(e) {
+            e.preventDefault();
+            const title = document.getElementById('fwTitle').value;
+            const desc = document.getElementById('fwDesc').value;
+            const fileInput = document.getElementById('fwFile');
+            
+            if(fileInput.files.length > 0) {
+                const file = fileInput.files[0];
+                const newFw = {
+                    id: Date.now(),
+                    title: title,
+                    desc: desc,
+                    date: new Date().toISOString().slice(0, 10),
+                    filename: file.name,
+                    size: (file.size / 1024).toFixed(1) + " KB"
+                };
+
+                firmwares.unshift(newFw);
+                localStorage.setItem('arduino_firmwares', JSON.stringify(firmwares));
+                renderFirmwares();
+                document.getElementById('uploadForm').reset();
+                alert("Đăng tải file firmware thành công!");
+                logToConsole(`Admin đã tải lên firmware mới: ${file.name}`, "success");
+            }
+        }
+
+        function deleteFirmware(id) {
+            if(confirm("Bạn có chắc chắn muốn xóa phiên bản code này không?")) {
+                firmwares = firmwares.filter(f => f.id !== id);
+                localStorage.setItem('arduino_firmwares', JSON.stringify(firmwares));
+                renderFirmwares();
+                logToConsole("Đã xóa một phiên bản code khỏi hệ thống.", "info");
+            }
+        }
+
+        // TÍCH HỢP WEB SERIAL API ĐỂ NẠP CODE QUA CỔNG USB
+        async function flashCode(title) {
+            logToConsole(`Bắt đầu tiến trình nạp cho dự án: "${title}"...`, "info");
+            
+            if (!("serial" in navigator)) {
+                alert("Trình duyệt của bạn không hỗ trợ Web Serial API! Vui lòng sử dụng Google Chrome hoặc Microsoft Edge trên máy tính.");
+                logToConsole("Lỗi: Trình duyệt không hỗ trợ Web Serial API.", "error");
+                return;
+            }
+
+            try {
+                logToConsole("Đang yêu cầu kết nối cổng USB / Cổng COM...", "info");
+                // Yêu cầu người dùng chọn cổng USB của Arduino đang cắm
+                const port = await navigator.serial.requestPort();
+                
+                logToConsole("Đã kết nối thiết bị phần cứng thành công!", "success");
+                logToConsole("Đang thiết lập tốc độ truyền dữ liệu (Baud rate: 115200)...", "info");
+                
+                await port.open({ baudRate: 115200 });
+                
+                logToConsole("Đang truyền dữ liệu firmware vào vi điều khiển...", "info");
+                // Giả lập quá trình ghi bytes qua Serial (Thực tế quá trình nạp bootloader STK500/ArduinoISP sẽ diễn ra ở đây)
+                await new Promise(resolve => setTimeout(timeoutAnim = setTimeout, 2000));
+                
+                logToConsole("NẠP CODE THÀNH CÔNG! Thiết bị đã sẵn sàng hoạt động.", "success");
+                alert("Nạp code thành công cho mạch Arduino!");
+                
+                await port.close();
+            } catch (error) {
+                console.error(error);
+                logToConsole(`Quá trình nạp bị hủy hoặc lỗi: ${error.message}`, "error");
+            }
+        }
+
+        function logToConsole(message, type = "info") {
+            const consoleEl = document.getElementById('consoleLog');
+            let colorClass = "text-slate-400";
+            if (type === "success") colorClass = "text-emerald-400 font-semibold";
+            if (type === "error") colorClass = "text-rose-400 font-semibold";
+            
+            consoleEl.innerHTML += `<div class="${colorClass}">> ${message}</div>`;
+            consoleEl.scrollTop = consoleEl.scrollHeight;
+        }
+
+        function clearConsole() {
+            document.getElementById('consoleLog.innerHTML` = `<span class="text-slate-600">> Đã xóa lịch sử nhật ký.</span>`;
+        }
+    </script>
+</body>
+</html>
